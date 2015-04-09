@@ -72,3 +72,11 @@ def deserialize_fields(json_fields):
     for field_name, value in fields.iteritems():
         fields[field_name] = getattr(CourseFields, field_name).from_json(value)
     return fields
+
+
+@task()
+def push_notification(course_key_string, notification_content):
+    """
+    Sends a push notification
+    """
+    pass
