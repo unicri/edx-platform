@@ -32,7 +32,6 @@ define(['backbone', 'jquery', 'underscore', 'js/common_helpers/ajax_helpers', 'j
 
                 timerCallback = jasmine.createSpy('timerCallback');
                 jasmine.Clock.useMock();
-
                 spyOn(Logger, 'log');
             });
 

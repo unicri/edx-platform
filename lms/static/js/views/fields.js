@@ -126,8 +126,13 @@
             },
 
             emitChangeInitiated: function (attributes, old_values) {
-                // If change analytics logging is desired, emit a changed_initiated event.
-                if (this.changeAnalyticsName) {
+                /**
+                 * If changeAnalyticsName and userID have been specified, emit an event.
+                 *
+                 * If old_values dict has not been supplied, get the old values for changed
+                 * attributes directly from the model.
+                 */
+                if (this.changeAnalyticsName && this.userID) {
                     var settings = {}, oldValue;
                     for (var key in attributes) {
                         if (old_values) {
@@ -143,7 +148,6 @@
                         settings: settings
                     });
                 }
-
             }
 
         });

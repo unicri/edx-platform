@@ -311,20 +311,22 @@ class EventsTestMixin(object):
         })
 
     def verify_browser_events(self, event_type, expected_events):
-        """
-        Verify that the expected browser events were logged.
+        """Verify that the expected browser events were logged.
         Args:
             event_type (str): The type of event to be verified.
             expected_events (list): A list of dicts representing the events that should
                 have been fired.
         """
         EmptyPromise(
-            lambda: self.get_matching_browser_events(event_type).count() == len(expected_events),
-            "Waiting for the correct number of browser events to have been recorded"
+            lambda: self.get_matching_browser_events(event_type).count() >= len(expected_events),
+            "Waiting for enough browser events to be emitted"
         ).fulfill()
 
-        # Verify that each of the expected events was found
+        # Verify that the correct number of events were found
         cursor = self.get_matching_browser_events(event_type)
+        self.assertEqual(cursor.count(), len(expected_events))
+
+        # Verify that each of the expected events was found
         for expected_event in expected_events:
             actual_event = cursor.next()
             self.assertEqual(json.loads(actual_event["event"]), expected_event)

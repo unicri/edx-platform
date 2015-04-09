@@ -136,7 +136,7 @@ class AccountSettingsPageTest(EventsTestMixin, WebAppTest):
 
     def _test_dropdown_field(
             self, field_id, title, initial_value, initial_evented_value, new_values, new_evented_values,
-            success_message=SUCCESS_MESSAGE, reloads_on_save=False
+            expected_events=None, success_message=SUCCESS_MESSAGE, reloads_on_save=False
     ):
         """
         Test behaviour of a dropdown field.
@@ -144,7 +144,8 @@ class AccountSettingsPageTest(EventsTestMixin, WebAppTest):
         self.assertEqual(self.account_settings_page.title_for_field(field_id), title)
         self.assertEqual(self.account_settings_page.value_for_dropdown_field(field_id), initial_value)
 
-        expected_events = []
+        if expected_events is None:
+            expected_events = []
         for index, new_value in enumerate(new_values):
             self.assertEqual(self.account_settings_page.value_for_dropdown_field(field_id, new_value), new_value)
             self.account_settings_page.wait_for_messsage(field_id, success_message)
@@ -280,14 +281,28 @@ class AccountSettingsPageTest(EventsTestMixin, WebAppTest):
         """
         Test behaviour of "Year of Birth" field.
         """
+        initial_value = self.account_settings_page.value_for_dropdown_field('year_of_birth')
         self.assertEqual(self.account_settings_page.value_for_dropdown_field('year_of_birth', ''), '')
+        # The above line sets the year_of_birth to "", so we expect an event to already exist.
+        expected_events = [
+            {
+                u"user_id": int(self.user_id),
+                u"settings": {
+                    'year_of_birth': {
+                        "old_value": initial_value,
+                        "new_value": ''
+                    }
+                }
+            }
+        ]
         self._test_dropdown_field(
             u'year_of_birth',
             u'Year of Birth',
-            u'2001',
-            None,
+            u'',
+            '',
             [u'1980', u''],
-            [u'1980', u'']
+            [u'1980', u''],
+            expected_events=expected_events
         )
 
     def test_country_field(self):
