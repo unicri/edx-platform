@@ -4,7 +4,6 @@ Single page accessibility tests for LMS.
 import os
 
 from bok_choy.browser import save_source
-from django.conf import settings
 
 from ..pages.lms.auto_auth import AutoAuthPage
 from ..pages.lms.courseware import CoursewarePage
@@ -15,6 +14,7 @@ from ..pages.lms.progress import ProgressPage
 from ..pages.common.logout import LogoutPage
 from ..fixtures.course import CourseFixture, XBlockFixtureDesc, CourseUpdateDesc
 from ..tests.helpers import UniqueCourseTest, load_data_str
+
 
 class LmsAccessibilityTest(UniqueCourseTest):
     """
