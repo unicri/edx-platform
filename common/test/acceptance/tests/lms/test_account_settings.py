@@ -35,6 +35,10 @@ class AccountSettingsPageTest(EventsTestMixin, WebAppTest):
         self.account_settings_page = AccountSettingsPage(self.browser)
         self.account_settings_page.visit()
 
+        # Clear events that may have been fired during setup e.g.
+        # during auto auth.
+        self.reset_event_tracking()
+
     def test_link_on_dashboard_works(self):
         """
         Scenario: Verify that account settings link is present in dashboard
@@ -233,6 +237,7 @@ class AccountSettingsPageTest(EventsTestMixin, WebAppTest):
         """
         Test behaviour of "Year of Birth" field.
         """
+        # Note that when we clear the year_of_birth here we're firing an event.
         self.assertEqual(self.account_settings_page.value_for_dropdown_field('year_of_birth', ''), '')
         self._test_dropdown_field(
             u'year_of_birth',
@@ -240,7 +245,7 @@ class AccountSettingsPageTest(EventsTestMixin, WebAppTest):
             u'',
             [u'1980', u''],
         )
-        self.assert_event_emitted_num_times('edx.user.settings.changed', self.start_time, self.user_id, 2)
+        self.assert_event_emitted_num_times('edx.user.settings.changed', self.start_time, self.user_id, 3)
 
     def test_country_field(self):
         """
