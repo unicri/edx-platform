@@ -14,6 +14,7 @@ import edxmako
 import logging
 from monkey_patch import django_utils_translation
 import analytics
+import sys
 
 
 log = logging.getLogger(__name__)
@@ -91,6 +92,8 @@ def enable_theme():
     # Include theme locale path for django translations lookup
     settings.LOCALE_PATHS = (theme_root / 'conf/locale',) + settings.LOCALE_PATHS
 
+    # Add theme path to python class PATH
+    sys.path.append(settings.ENV_ROOT / "themes" / settings.THEME_NAME)
 
 def enable_microsites():
     """
