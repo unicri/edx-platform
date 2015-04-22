@@ -4,6 +4,7 @@ Serializers for all Course Descriptor and Course About Descriptor related return
 """
 from xmodule.contentstore.content import StaticContent
 from django.conf import settings
+import sys
 
 DATE_FORMAT = getattr(settings, 'API_DATE_FORMAT', '%Y-%m-%d')
 
@@ -27,10 +28,25 @@ def serialize_content(course_descriptor, about_descriptor):
         'start': _formatted_datetime(course_descriptor, 'start'),
         'end': _formatted_datetime(course_descriptor, 'end'),
         'announcement': None,
-        'effort': about_descriptor.get("effort", None)
-
+        'effort': about_descriptor.get("effort", None),
+        'short_description': about_descriptor.get("short_description", None),
+        'description': about_descriptor.get("description", None),
+        'key_dates': about_descriptor.get("key_dates", None),
+        'video': about_descriptor.get("video", None),
+        'course_staff_short': about_descriptor.get("course_staff_short", None),
+        'course_staff_extended': about_descriptor.get("course_staff_extended", None),
+        'requirements': about_descriptor.get("requirements", None),
+        'syllabus': about_descriptor.get("syllabus", None),
+        'textbook': about_descriptor.get("textbook", None),
+        'faq': about_descriptor.get("faq", None),
+        'more_info': about_descriptor.get("more_info", None),
+        'number': about_descriptor.get("number", None),
+        'instructors': about_descriptor.get("instructors", None),
+        'overview': about_descriptor.get("overview", None),
+        'end_date': about_descriptor.get("end_date", None),
+        'prerequisites': about_descriptor.get("prerequisites", None),
+        'ocw_links': about_descriptor.get("ocw_links", None)
     }
-
     content_id = unicode(course_descriptor.id)
     data["course_id"] = unicode(content_id)
     if getattr(course_descriptor, 'course_image', False):
