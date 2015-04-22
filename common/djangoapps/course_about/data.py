@@ -14,11 +14,25 @@ from xmodule.modulestore.exceptions import ItemNotFoundError
 
 log = logging.getLogger(__name__)
 
-ABOUT_ATTRIBUTES = ['short_description', 'description', 'key_dates', 'video',
-                    'course_staff_short', 'course_staff_extended',
-                    'requirements', 'syllabus', 'textbook', 'faq', 'more_info',
-                    'number', 'instructors', 'overview',
-                    'effort', 'end_date', 'prerequisites', 'ocw_links']
+ABOUT_ATTRIBUTES = [
+    'effort',
+    'overview',
+    'title',
+    'university',
+    'number',
+    'short_description',
+    'description',
+    'key_dates',
+    'video',
+    'course_staff_short',
+    'course_staff_extended',
+    'requirements',
+    'syllabus',
+    'textbook',
+    'faq',
+    'more_info',
+    'ocw_links',
+]
 
 
 def get_course_about_details(course_id):  # pylint: disable=unused-argument
