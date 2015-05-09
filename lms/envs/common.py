@@ -357,6 +357,9 @@ FEATURES = {
     # Courseware search feature
     'ENABLE_COURSEWARE_SEARCH': False,
 
+    # Dashboard search feature
+    'ENABLE_DASHBOARD_SEARCH': False,
+
     # log all information from cybersource callbacks
     'LOG_POSTPAY_CALLBACKS': True,
 
@@ -377,6 +380,9 @@ FEATURES = {
         'TWITTER_SHARING': False,
         'TWITTER_SHARING_TEXT': None
     },
+
+    # Course discovery feature
+    'ENABLE_COURSE_DISCOVERY': False,
 }
 
 # Ignore static asset files on import which match this pattern
@@ -584,22 +590,42 @@ TRACKING_IGNORE_URL_PATTERNS = [r'^/event', r'^/login', r'^/heartbeat', r'^/segm
 
 EVENT_TRACKING_ENABLED = True
 EVENT_TRACKING_BACKENDS = {
-    'logger': {
-        'ENGINE': 'eventtracking.backends.logger.LoggerBackend',
+    'tracking_logs': {
+        'ENGINE': 'eventtracking.backends.routing.RoutingBackend',
         'OPTIONS': {
-            'name': 'tracking',
-            'max_event_size': TRACK_MAX_EVENT,
+            'backends': {
+                'logger': {
+                    'ENGINE': 'eventtracking.backends.logger.LoggerBackend',
+                    'OPTIONS': {
+                        'name': 'tracking',
+                        'max_event_size': TRACK_MAX_EVENT,
+                    }
+                }
+            },
+            'processors': [
+                {'ENGINE': 'track.shim.LegacyFieldMappingProcessor'},
+                {'ENGINE': 'track.shim.VideoEventProcessor'}
+            ]
+        }
+    },
+    'segmentio': {
+        'ENGINE': 'eventtracking.backends.routing.RoutingBackend',
+        'OPTIONS': {
+            'backends': {
+                'segment': {'ENGINE': 'eventtracking.backends.segment.SegmentBackend'}
+            },
+            'processors': [
+                {
+                    'ENGINE': 'eventtracking.processors.whitelist.NameWhitelistProcessor',
+                    'OPTIONS': {
+                        'whitelist': []
+                    }
+                }
+            ]
         }
     }
 }
-EVENT_TRACKING_PROCESSORS = [
-    {
-        'ENGINE': 'track.shim.LegacyFieldMappingProcessor'
-    },
-    {
-        'ENGINE': 'track.shim.VideoEventProcessor'
-    }
-]
+EVENT_TRACKING_PROCESSORS = []
 
 # Backwards compatibility with ENABLE_SQL_TRACKING_LOGS feature flag.
 # In the future, adding the backend to TRACKING_BACKENDS should be enough.
@@ -1103,7 +1129,7 @@ courseware_js = (
         for pth in ['courseware', 'histogram', 'navigation', 'time']
     ] +
     ['js/' + pth + '.js' for pth in ['ajax-error']] +
-    ['js/search/main.js'] +
+    ['js/search/course/main.js'] +
     sorted(rooted_glob(PROJECT_ROOT / 'static', 'coffee/src/modules/**/*.js'))
 )
 
@@ -1135,7 +1161,10 @@ main_vendor_js = base_vendor_js + [
     'js/vendor/URI.min.js',
 ]
 
-dashboard_js = sorted(rooted_glob(PROJECT_ROOT / 'static', 'js/dashboard/**/*.js'))
+dashboard_js = (
+    sorted(rooted_glob(PROJECT_ROOT / 'static', 'js/dashboard/**/*.js')) +
+    ['js/search/dashboard/main.js']
+)
 discussion_js = sorted(rooted_glob(COMMON_ROOT / 'static', 'coffee/src/discussion/**/*.js'))
 rwd_header_footer_js = sorted(rooted_glob(PROJECT_ROOT / 'static', 'js/common_helpers/rwd_header_footer.js'))
 staff_grading_js = sorted(rooted_glob(PROJECT_ROOT / 'static', 'coffee/src/staff_grading/**/*.js'))
@@ -1651,6 +1680,7 @@ INSTALLED_APPS = (
     # Discussion forums
     'django_comment_client',
     'django_comment_common',
+    'discussion_api',
     'notes',
 
     'edxnotes',
@@ -1715,6 +1745,9 @@ INSTALLED_APPS = (
 
     'openedx.core.djangoapps.content.course_structures',
     'course_structure_api',
+
+    # Mailchimp Syncing
+    'mailing',
 
     # CORS and cross-domain CSRF
     'corsheaders',
@@ -2215,6 +2248,8 @@ PDF_RECEIPT_COBRAND_LOGO_HEIGHT_MM = 12
 SEARCH_ENGINE = None
 # Use the LMS specific result processor
 SEARCH_RESULT_PROCESSOR = "lms.lib.courseware_search.lms_result_processor.LmsSearchResultProcessor"
+# Use the LMS specific filter generator
+SEARCH_FILTER_GENERATOR = "lms.lib.courseware_search.lms_filter_generator.LmsSearchFilterGenerator"
 
 ### PERFORMANCE EXPERIMENT SETTINGS ###
 # CDN experiment/monitoring flags
@@ -2252,7 +2287,7 @@ ECOMMERCE_API_SIGNING_KEY = None
 ECOMMERCE_API_TIMEOUT = 5
 
 # Reverification checkpoint name pattern
-CHECKPOINT_PATTERN = r'(?P<checkpoint_name>\w+)'
+CHECKPOINT_PATTERN = r'(?P<checkpoint_name>[^/]+)'
 
 # For the fields override feature
 # If using FEATURES['INDIVIDUAL_DUE_DATES'], you should add
@@ -2274,9 +2309,7 @@ PROFILE_IMAGE_BACKEND = {
         'base_url': os.path.join(MEDIA_URL, 'profile-images/'),
     },
 }
-PROFILE_IMAGE_DEFAULT_FILENAME = (
-    'images/edx-theme/default-profile' if FEATURES['IS_EDX_DOMAIN'] else 'images/default-theme/default-profile'
-)
+PROFILE_IMAGE_DEFAULT_FILENAME = 'images/default-theme/default-profile'
 PROFILE_IMAGE_DEFAULT_FILE_EXTENSION = 'png'
 # This secret key is used in generating unguessable URLs to users'
 # profile images.  Once it has been set, changing it will make the
@@ -2285,3 +2318,10 @@ PROFILE_IMAGE_DEFAULT_FILE_EXTENSION = 'png'
 PROFILE_IMAGE_SECRET_KEY = 'placeholder secret key'
 PROFILE_IMAGE_MAX_BYTES = 1024 * 1024
 PROFILE_IMAGE_MIN_BYTES = 100
+
+# This is to check the domain in case of preview.
+PREVIEW_DOMAIN = 'preview'
+
+# Sets the maximum number of courses listed on the homepage
+# If set to None, all courses will be listed on the homepage
+HOMEPAGE_COURSE_MAX = None

@@ -5,6 +5,7 @@ Test for lms courseware app, module render unit
 import ddt
 import itertools
 import json
+from nose.plugins.attrib import attr
 from functools import partial
 
 from bson import ObjectId
@@ -12,6 +13,7 @@ from django.http import Http404, HttpResponse
 from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.test.client import RequestFactory
+from django.test.utils import override_settings
 from django.contrib.auth.models import AnonymousUser
 from mock import MagicMock, patch, Mock
 from opaque_keys.edx.keys import UsageKey, CourseKey
@@ -27,6 +29,7 @@ from xblock.fragment import Fragment
 from capa.tests.response_xml_factory import OptionResponseXMLFactory
 from courseware import module_render as render
 from courseware.courses import get_course_with_access, course_image_url, get_course_info_section
+from courseware.field_overrides import OverrideFieldData
 from courseware.model_data import FieldDataCache
 from courseware.module_render import hash_resource, get_module_for_descriptor
 from courseware.models import StudentModule
@@ -34,6 +37,7 @@ from courseware.tests.factories import StudentModuleFactory, UserFactory, Global
 from courseware.tests.tests import LoginEnrollmentTestCase
 from courseware.tests.test_submitting_problems import TestSubmittingProblems
 from lms.djangoapps.lms_xblock.runtime import quote_slashes
+from lms.djangoapps.lms_xblock.field_data import LmsFieldData
 from student.models import anonymous_id_for_user
 from xmodule.modulestore.tests.django_utils import (
     TEST_DATA_MIXED_TOY_MODULESTORE,
@@ -74,6 +78,7 @@ class EmptyXModuleDescriptor(XModuleDescriptor):  # pylint: disable=abstract-met
     module_class = EmptyXModule
 
 
+@attr('shard_1')
 @ddt.ddt
 class ModuleRenderTestCase(ModuleStoreTestCase, LoginEnrollmentTestCase):
     """
@@ -99,10 +104,15 @@ class ModuleRenderTestCase(ModuleStoreTestCase, LoginEnrollmentTestCase):
         self.dispatch = 'score_update'
 
         # Construct a 'standard' xqueue_callback url
-        self.callback_url = reverse('xqueue_callback', kwargs=dict(course_id=self.course_key.to_deprecated_string(),
-                                                                   userid=str(self.mock_user.id),
-                                                                   mod_id=self.mock_module.id,
-                                                                   dispatch=self.dispatch))
+        self.callback_url = reverse(
+            'xqueue_callback',
+            kwargs=dict(
+                course_id=self.course_key.to_deprecated_string(),
+                userid=str(self.mock_user.id),
+                mod_id=self.mock_module.id,
+                dispatch=self.dispatch
+            )
+        )
 
     def test_get_module(self):
         self.assertEqual(
@@ -249,6 +259,63 @@ class ModuleRenderTestCase(ModuleStoreTestCase, LoginEnrollmentTestCase):
         render.get_module_for_descriptor(self.mock_user, request, descriptor, field_data_cache, self.toy_course.id)
         render.get_module_for_descriptor(self.mock_user, request, descriptor, field_data_cache, self.toy_course.id)
 
+    @override_settings(FIELD_OVERRIDE_PROVIDERS=(
+        'ccx.overrides.CustomCoursesForEdxOverrideProvider',))
+    def test_rebind_different_users_ccx(self):
+        """
+        This tests the rebinding a descriptor to a student does not result
+        in overly nested _field_data when CCX is enabled.
+        """
+        request = self.request_factory.get('')
+        request.user = self.mock_user
+        course = CourseFactory()
+
+        descriptor = ItemFactory(category='html', parent=course)
+        field_data_cache = FieldDataCache(
+            [self.toy_course, descriptor], self.toy_course.id, self.mock_user
+        )
+
+        # grab what _field_data was originally set to
+        original_field_data = descriptor._field_data  # pylint: disable=protected-access, no-member
+
+        render.get_module_for_descriptor(
+            self.mock_user, request, descriptor, field_data_cache, self.toy_course.id
+        )
+
+        # check that _unwrapped_field_data is the same as the original
+        # _field_data, but now _field_data as been reset.
+        # pylint: disable=protected-access, no-member
+        self.assertIs(descriptor._unwrapped_field_data, original_field_data)
+        self.assertIsNot(descriptor._unwrapped_field_data, descriptor._field_data)
+
+        # now bind this module to a few other students
+        for user in [UserFactory(), UserFactory(), UserFactory()]:
+            render.get_module_for_descriptor(
+                user,
+                request,
+                descriptor,
+                field_data_cache,
+                self.toy_course.id
+            )
+
+        # _field_data should now be wrapped by LmsFieldData
+        # pylint: disable=protected-access, no-member
+        self.assertIsInstance(descriptor._field_data, LmsFieldData)
+
+        # the LmsFieldData should now wrap OverrideFieldData
+        self.assertIsInstance(
+            # pylint: disable=protected-access, no-member
+            descriptor._field_data._authored_data._source,
+            OverrideFieldData
+        )
+
+        # the OverrideFieldData should point to the original unwrapped field_data
+        self.assertIs(
+            # pylint: disable=protected-access, no-member
+            descriptor._field_data._authored_data._source.fallback,
+            descriptor._unwrapped_field_data
+        )
+
     def test_hash_resource(self):
         """
         Ensure that the resource hasher works and does not fail on unicode,
@@ -258,6 +325,7 @@ class ModuleRenderTestCase(ModuleStoreTestCase, LoginEnrollmentTestCase):
         self.assertEqual(hash_resource(resources), 'a76e27c8e80ca3efd7ce743093aa59e0')
 
 
+@attr('shard_1')
 class TestHandleXBlockCallback(ModuleStoreTestCase, LoginEnrollmentTestCase):
     """
     Test the handle_xblock_callback function
@@ -435,6 +503,7 @@ class TestHandleXBlockCallback(ModuleStoreTestCase, LoginEnrollmentTestCase):
         self.assertEquals(len(doc('div.xblock-student_view-videosequence')), 1)
 
 
+@attr('shard_1')
 @ddt.ddt
 class TestTOC(ModuleStoreTestCase):
     """Check the Table of Contents for a course"""
@@ -531,6 +600,7 @@ class TestTOC(ModuleStoreTestCase):
                 self.assertIn(toc_section, actual)
 
 
+@attr('shard_1')
 @ddt.ddt
 class TestHtmlModifiers(ModuleStoreTestCase):
     """
@@ -692,6 +762,7 @@ class XBlockWithJsonInitData(XBlock):
         return frag
 
 
+@attr('shard_1')
 @ddt.ddt
 class JsonInitDataTest(ModuleStoreTestCase):
     """Tests for JSON data injected into the JS init function."""
@@ -785,6 +856,7 @@ class ViewInStudioTest(ModuleStoreTestCase):
         self.module = self._get_module(course_key, descriptor, location)
 
 
+@attr('shard_1')
 class MongoViewInStudioTest(ViewInStudioTest):
     """Test the 'View in Studio' link visibility in a mongo backed course."""
 
@@ -813,6 +885,7 @@ class MongoViewInStudioTest(ViewInStudioTest):
         self.assertNotIn('View Unit in Studio', result_fragment.content)
 
 
+@attr('shard_1')
 class MixedViewInStudioTest(ViewInStudioTest):
     """Test the 'View in Studio' link visibility in a mixed mongo backed course."""
 
@@ -837,6 +910,7 @@ class MixedViewInStudioTest(ViewInStudioTest):
         self.assertNotIn('View Unit in Studio', result_fragment.content)
 
 
+@attr('shard_1')
 class XmlViewInStudioTest(ViewInStudioTest):
     """Test the 'View in Studio' link visibility in an xml backed course."""
     MODULESTORE = TEST_DATA_XML_MODULESTORE
@@ -848,6 +922,7 @@ class XmlViewInStudioTest(ViewInStudioTest):
         self.assertNotIn('View Unit in Studio', result_fragment.content)
 
 
+@attr('shard_1')
 @patch.dict('django.conf.settings.FEATURES', {'DISPLAY_DEBUG_INFO_TO_STAFF': True, 'DISPLAY_HISTOGRAMS_TO_STAFF': True})
 @patch('courseware.module_render.has_access', Mock(return_value=True))
 class TestStaffDebugInfo(ModuleStoreTestCase):
@@ -968,6 +1043,7 @@ PER_STUDENT_ANONYMIZED_DESCRIPTORS = set(
 )
 
 
+@attr('shard_1')
 @ddt.ddt
 class TestAnonymousStudentId(ModuleStoreTestCase, LoginEnrollmentTestCase):
     """
@@ -1043,6 +1119,7 @@ class TestAnonymousStudentId(ModuleStoreTestCase, LoginEnrollmentTestCase):
         )
 
 
+@attr('shard_1')
 @patch('track.views.tracker')
 class TestModuleTrackingContext(ModuleStoreTestCase):
     """
@@ -1121,6 +1198,7 @@ class TestModuleTrackingContext(ModuleStoreTestCase):
             self.assertEqual(module_info['original_usage_version'], unicode(original_usage_version))
 
 
+@attr('shard_1')
 class TestXmoduleRuntimeEvent(TestSubmittingProblems):
     """
     Inherit from TestSubmittingProblems to get functionality that set up a course and problems structure
@@ -1169,6 +1247,7 @@ class TestXmoduleRuntimeEvent(TestSubmittingProblems):
         self.assertIsNone(student_module.max_grade)
 
 
+@attr('shard_1')
 class TestRebindModule(TestSubmittingProblems):
     """
     Tests to verify the functionality of rebinding a module.
@@ -1235,6 +1314,7 @@ class TestRebindModule(TestSubmittingProblems):
         self.assertFalse(psycho_handler.called)
 
 
+@attr('shard_1')
 @ddt.ddt
 class TestEventPublishing(ModuleStoreTestCase, LoginEnrollmentTestCase):
     """
@@ -1273,6 +1353,7 @@ class TestEventPublishing(ModuleStoreTestCase, LoginEnrollmentTestCase):
         mock_track_function.return_value.assert_called_once_with(event_type, event)
 
 
+@attr('shard_1')
 @ddt.ddt
 class LMSXBlockServiceBindingTest(ModuleStoreTestCase):
     """
@@ -1355,6 +1436,7 @@ BLOCK_TYPES = ['xblock', 'xmodule']
 USER_NUMBERS = range(2)
 
 
+@attr('shard_1')
 @ddt.ddt
 class TestFilteredChildren(ModuleStoreTestCase):
     """

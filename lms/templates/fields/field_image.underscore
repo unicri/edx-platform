@@ -4,13 +4,14 @@
         <label class="u-field-upload-button">
             <span class="upload-button-icon" aria-hidden="true"><%= uploadButtonIcon %></span>
             <span class="upload-button-title" aria-live="polite"><%= uploadButtonTitle %></span>
-            <input class="upload-button-input" type="file" name="<%= id %>"/>
+            <input class="upload-button-input" type="file" name="<%= inputName %>"/>
        	</label>
        	<button class="upload-submit" type="button" hidden="true"><%= uploadButtonTitle %></button>
         
         <button class="u-field-remove-button" type="button">
             <span class="remove-button-icon" aria-hidden="true"><%= removeButtonIcon %></span>
             <span class="remove-button-title" aria-live="polite"><%= removeButtonTitle %></span>
+            <span class="sr"><%= screenReaderTitle %></span>
         </button>
     </div>
 </div>
