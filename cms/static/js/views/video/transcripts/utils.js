@@ -128,11 +128,19 @@ return (function () {
             // The regular expression try catches file name and file extension.
             // '[scheme://hostname/pathname/]filename.extension[?query#hash]'
             match = link.pathname.match(/\/{1}([^\/]+)\.([^\/]+)$/);
+            debugger;
             if (match) {
-                cache[url] = {
-                    video: match[1],
-                    type: match[2]
-                };
+                if (match[2] == 'aspx' || match[2] == 'php') {
+                    cache[url] = {
+                        video: url,
+                        type: 'other'
+                    };
+                } else {
+                    cache[url] = {
+                        video: match[1],
+                        type: match[2]
+                    };
+                }
             } else {
                 // Links like http://goo.gl/pxxZrg
                 // The regular expression try catches file name.
