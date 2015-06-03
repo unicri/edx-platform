@@ -927,6 +927,24 @@ def mktg_course_about(request, course_id):
                             settings.FEATURES.get('ENABLE_LMS_MIGRATION'))
     course_modes = CourseMode.modes_for_course_dict(course.id)
 
+    # Shoppingcart feature, grabbed from above about code
+    registration_price = 0
+    in_cart = False
+    reg_then_add_to_cart_link = ""
+    _is_shopping_cart_enabled = is_shopping_cart_enabled()
+    if _is_shopping_cart_enabled:
+        registration_price = CourseMode.min_course_price_for_currency(course_key, settings.PAID_COURSE_REGISTRATION_CURRENCY[0])
+        if request.user.is_authenticated():
+            cart = shoppingcart.models.Order.get_cart_for_user(request.user)
+            in_cart = shoppingcart.models.PaidCourseRegistration.contained_in_order(cart, course_key) or \
+                shoppingcart.models.CourseRegCodeItem.contained_in_order(cart, course_key)
+
+        reg_then_add_to_cart_link = "{reg_url}?course_id={course_id}&enrollment_action=add_to_cart".format(
+            reg_url=reverse('register_user'), course_id=course.id.to_deprecated_string())
+
+    course_price = get_cosmetic_display_price(course, registration_price)
+    can_add_course_to_cart = _is_shopping_cart_enabled and registration_price
+
     context = {
         'course': course,
         'registered': registered,
@@ -934,6 +952,12 @@ def mktg_course_about(request, course_id):
         'course_target': course_target,
         'show_courseware_link': show_courseware_link,
         'course_modes': course_modes,
+        'can_add_course_to_cart': can_add_course_to_cart,
+        'is_cosmetic_price_enabled': settings.FEATURES.get('ENABLE_COSMETIC_DISPLAY_PRICE'),
+        'course_price': course_price,
+        'reg_then_add_to_cart_link': reg_then_add_to_cart_link,
+        'in_cart': in_cart,
+        'cart_link': reverse('shoppingcart.views.show_cart'),
     }
 
     # The edx.org marketing site currently displays only in English.
